@@ -1,7 +1,7 @@
 import sys
 from PyQt5 import QtCore, QtWidgets, QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QGridLayout, QLabel, QPushButton, QMainWindow, QFileDialog, QStackedLayout, QAction, QMessageBox, QProgressBar, QScrollArea
-from PyQt5.QtGui import QIcon, QPalette, QColor, QLinearGradient, QBrush, QFont, QDesktopServices, QPixmap, QImage, qRed, qBlue, qGreen
+from PyQt5.QtGui import QIcon, QPalette, QColor, QLinearGradient, QBrush, QFont, QDesktopServices, QPixmap, QImage, qRed, qBlue, qGreen, qRgb
 from PyQt5.QtCore import QUrl, QTimer, QThread, QByteArray, QBuffer, QIODevice, pyqtSignal
 from PyQt5.QtMultimedia import QCamera, QCameraInfo
 from PyQt5.QtMultimediaWidgets import QCameraViewfinder
@@ -10,6 +10,9 @@ import inspect
 from tensorflow import keras
 import tensorflow as tf
 import numpy as np
+
+from PIL import Image
+import matplotlib.pyplot as plt
 
 from tensorflow.python.client import device_lib
 print(device_lib.list_local_devices())
@@ -88,21 +91,31 @@ class AppHR(QMainWindow):
 
     def capture(self, img):
         rgb_pic = np.zeros((1, 128, 128, 3))
+        gray_color_table = [qRgb(i, i, i) for i in range(256)]
 
         img_copy = img.copy()
         img_copy = img_copy.scaled(128, 128)
 
         for y in range(img_copy.height()):
             for x in range(img_copy.width()):
-                rgb_pic[0][x][y][0] = qRed(img.pixel(x, y))
-                rgb_pic[0][x][y][1] = qGreen(img.pixel(x, y))
-                rgb_pic[0][x][y][2] = qBlue(img.pixel(x, y))
+                rgb_pic[0][y][x][0] = qRed(img_copy.pixel(x, y))
+                rgb_pic[0][y][x][1] = qGreen(img_copy.pixel(x, y))
+                rgb_pic[0][y][x][2] = qBlue(img_copy.pixel(x, y))
 
-        mask = tf.round(model(rgb_pic)).numpy()[0, :, :, :]
-        mask_qt = QImage(mask.data, 128, 128, QImage.Format_Indexed8)
+        mask = np.flip(tf.round(model(rgb_pic)).numpy()[0, :, :, :], 0)
+        plt.clf()
+        plt.imshow(mask)
+        plt.savefig('mask.png')
+        # pil_mask = Image.fromarray(np.require(rgb_pic[0, :, :, :], np.uint8, 'C'), 'RGB')
+        # pil_mask.show()
+        # mask = np.require(mask, np.uint8, 'C')
+        # mask_qt = QImage(mask.data, 128, 128, mask.strides[0], QImage.Format_Indexed8)
+        # mask_qt.setColorTable(gray_color_table)
 
         test_frame = QLabel()
-        test_frame.setPixmap(QPixmap.fromImage(mask_qt))
+        # test_frame.setPixmap(QPixmap.fromImage(mask_qt))
+        pixmap = QPixmap('mask.png')
+        test_frame.setPixmap(pixmap)
         self.page.addWidget(test_frame, 1, 0)
 
         print('fine')
@@ -111,7 +124,7 @@ class AppHR(QMainWindow):
         if self.checker == 1:
             self.capture(img.copy())
             self.checker = 0
-        self.video_widget.setPixmap(QPixmap.fromImage(img))
+        self.video_widget.setPixmap(QPixmap.fromImage(img.mirrored()))
         self.video_widget.repaint()
 
     def first_screen(self):
