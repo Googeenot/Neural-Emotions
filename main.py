@@ -102,23 +102,22 @@ class AppHR(QMainWindow):
                 rgb_pic[0][y][x][1] = qGreen(img_copy.pixel(x, y))
                 rgb_pic[0][y][x][2] = qBlue(img_copy.pixel(x, y))
 
-        mask = np.flip(tf.round(model(rgb_pic)).numpy()[0, :, :, :], 0)
-        plt.clf()
-        plt.imshow(mask)
-        plt.savefig('mask.png')
-        # pil_mask = Image.fromarray(np.require(rgb_pic[0, :, :, :], np.uint8, 'C'), 'RGB')
-        # pil_mask.show()
-        # mask = np.require(mask, np.uint8, 'C')
-        # mask_qt = QImage(mask.data, 128, 128, mask.strides[0], QImage.Format_Indexed8)
-        # mask_qt.setColorTable(gray_color_table)
+        mask = np.flip(tf.round(model(rgb_pic)).numpy()[0, :, :, 0], 0)
+        mask = np.require(mask, np.uint8, 'C') * 255
+        mask_qt = QImage(mask.data, 128, 128, mask.strides[0], QImage.Format_Indexed8)
+        mask_qt.setColorTable(gray_color_table)
+        mask_qt = mask_qt.scaled(640, 480)
+
+        img = img.mirrored()
+
+        for y in range(mask_qt.height()):
+            for x in range(mask_qt.width()):
+                if qRed(mask_qt.pixel(x, y)) == 0 and qGreen(mask_qt.pixel(x, y)) == 0 and qBlue(mask_qt.pixel(x, y)) == 0:
+                    img.setPixelColor(x, y, QColor(0, 0, 0))
 
         test_frame = QLabel()
-        # test_frame.setPixmap(QPixmap.fromImage(mask_qt))
-        pixmap = QPixmap('mask.png')
-        test_frame.setPixmap(pixmap)
+        test_frame.setPixmap(QPixmap.fromImage(img))
         self.page.addWidget(test_frame, 1, 0)
-
-        print('fine')
 
     def paint_frames(self, img):
         if self.checker == 1:
